@@ -1,5 +1,59 @@
 #!/bin/sh
+Color_Off='\033[0m'
+Blue='\033[0;34m'
+Green='\033[4;32m'
+Red='\033[0;31m'
+# # 🚀
+# # 🧙🏼‍♂️
+# # ⏳
+# # 💚
+# # 🖥️
+# # 🐳
+echo -e "$Green\t💚 Treasury Pre Commit $Color_Off"
+echo -e "$Blue\t🖥️ Build the Project $Color_Off"
+dotnet build --configuration Release --interactive
+rc=$?
+if [[ $rc != 0 ]] ; then
+	#echo -e "\t🚀This will pass"
+	echo -e "$Red\t🤦Build failed❌"
+    echo ""
+	echo $rc
+	exit 1
+fi
 
+echo -e "$Blue\t✔️ Execute Unit Tests $Color_Off"
+dotnet test test
 
-echo "This will fail"
+rc=$?
+if [[ $rc != 0 ]] ; then
+	#echo -e "\t🚀This will pass"
+	echo -e "$Red\t🤦Unit tests failed❌\t Erro: $rc $Color_Off"
+    echo ""
+	exit 1
+fi
+
+echo -e "$Blue\t🧙🏼‍♂️ Execute Benchmark Tests $Color_Off"
+dotnet test test
+rc=$?
+if [[ $rc != 0 ]] ; then
+	#echo -e "\t🚀This will pass"
+	echo -e "$Red\t🤦Benchmark tests failed❌\t Erro: $rc $Color_Off"
+    echo ""
+	exit 1
+fi
+
+echo -e "$Blue\t🐳 Execute Integration Tests $Color_Off"
+dotnet test test/Treasury.Stock.AssetsManager.Tests.Integration
+rc=$?
+if [[ $rc != 0 ]] ; then
+	#echo -e "\t🚀This will pass"
+	echo -e "$Red\t🤦Integration tests failed❌\t Erro: $rc $Color_Off"
+    echo ""
+	exit 1
+fi
+# # cd test
+# # ls
+# #dotnet test
+echo -e "$Red\t🤦This will unpass $Color_Off"
 exit 1
+#🚀
