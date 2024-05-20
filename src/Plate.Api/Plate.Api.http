@@ -1,0 +1,20 @@
+@Plate.Api_HostAddress = https://localhost:7146
+
+# @name login
+POST {{Plate.Api_HostAddress}}/login
+accept: */*
+Content-Type: application/json
+
+{
+  "Username": "batman",
+  "Password": "batman"
+}
+###
+
+@authToken = {{login.response.body.$.token}}
+
+# @name getAuthenticated
+GET {{Plate.Api_HostAddress}}/api/weatherforecast/authenticated 
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImJhdG1hbiIsInJvbGUiOiJtYW5hZ2VyIiwibmJmIjoxNzE2MjQ5NTU1LCJleHAiOjE3MTYyNTY3NTUsImlhdCI6MTcxNjI0OTU1NX0.Y56lTYsOLBvsTWvJKgr38fYrSwSqwxoIzGjAKMQWPZw
+accept: */*
+###
