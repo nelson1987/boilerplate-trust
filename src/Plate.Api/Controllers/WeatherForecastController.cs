@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
+using AutoMapper;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -73,17 +74,18 @@ public class WeatherForecastController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> Post([FromBody] CreateAccountCommand request, CancellationToken cancellationToken = default)
+    public async Task<ActionResult> Post([FromBody] CreateAccountRequest request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Started {0}", nameof(Post));
-        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+        var command = request.MapTo<CreateAccountCommand>();
+        var validationResult = await _validator.ValidateAsync(command, cancellationToken);
         if (!validationResult.IsValid)
             return UnprocessableEntity(validationResult.Errors);
 
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        await _handler.Handle(request, cancellationToken);
+        await _handler.Handle(command, cancellationToken);
 
         return Created();
     }
@@ -142,6 +144,8 @@ public record User
 public record LoginAccountCommand(string Username, string Password);
 
 public record CreateAccountCommand(string Username, string Password);
+
+public record CreateAccountRequest(string Username, string Password);
 
 public class CreateAccountCommandValidator : AbstractValidator<CreateAccountCommand>
 {
@@ -319,6 +323,26 @@ public static class Dependencies
         });
         return services;
     }
+
+    public static IServiceCollection AddAutoMapping(this IServiceCollection services)
+    {
+        var mapper = InitializeStaticMapping();
+        services.AddSingleton(mapper);
+        return services;
+    }
+
+    private static IMapper InitializeStaticMapping()
+    {
+        var configuration = new MapperConfiguration(cfg =>
+        {
+            cfg.AddProfile<AccountMapper>();
+        });
+
+        var mapper = new Mapper(configuration);
+        AutoMapperExtension.Initialize(mapper);
+        return mapper;
+    }
+
 }
 
 public class LoginAccountCommandExample : IMultipleExamplesProvider<LoginAccountCommand>
@@ -327,5 +351,28 @@ public class LoginAccountCommandExample : IMultipleExamplesProvider<LoginAccount
     {
         yield return SwaggerExample.Create("Manager", new LoginAccountCommand("batman", "batman"));
         yield return SwaggerExample.Create("Employee", new LoginAccountCommand("robin", "robin"));
+    }
+}
+
+public static class AutoMapperExtension
+{
+    private static IMapper _instance;
+
+    public static void Initialize(IMapper instance)
+    {
+        _instance = instance;
+    }
+
+    public static TDestination MapTo<TDestination>(this object obj)
+    {
+        return _instance.Map<TDestination>(obj);
+    }
+}
+
+public class AccountMapper : Profile
+{
+    public AccountMapper()
+    {
+        CreateMap<CreateAccountCommand, CreateAccountRequest>();
     }
 }
