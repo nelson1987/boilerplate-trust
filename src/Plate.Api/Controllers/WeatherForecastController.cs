@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using Swashbuckle.AspNetCore.Filters;
 
 namespace Plate.Api.Controllers;
@@ -340,18 +341,26 @@ public static class Dependencies
         services.AddSingleton(mapper);
         return services;
     }
+
     public static IServiceCollection AddMediator(this IServiceCollection services)
     {
-
         var domainAssembly = typeof(CreateAccountCommandHandler).Assembly;
         // Add MediatR
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(domainAssembly));
-
         //Add FluentValidation
         services.AddFluentValidation(new[] { domainAssembly });
         return services;
     }
-
+    public static ILoggingBuilder AddLogging(this ILoggingBuilder logging, IConfiguration configuration)
+    {
+        var logger = new LoggerConfiguration()
+            .ReadFrom.Configuration(configuration)
+            .Enrich.FromLogContext()
+            .CreateLogger();
+        logging.ClearProviders();
+        logging.AddSerilog(logger);
+        return logging;
+    }
 }
 
 public class LoginAccountCommandExample : IMultipleExamplesProvider<LoginAccountCommand>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Plate.Api.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Logging.AddLogging(builder.Configuration);
 builder.Services.Configure<GzipCompressionProviderOptions>(options =>
                     {
                         options.Level = CompressionLevel.Optimal;
