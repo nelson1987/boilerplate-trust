@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -13,6 +12,7 @@ using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Filters;
 
 namespace Plate.Api.Controllers;
+
 [ApiController]
 [Route("api/[controller]")]
 [EnableRateLimiting("fixed-by-ip")]
@@ -150,6 +150,7 @@ public class CreateAccountCommandValidator : AbstractValidator<CreateAccountComm
         RuleFor(x => x.Username).NotEmpty();
     }
 }
+
 public interface ISummary
 {
     Task<string[]> GetSummaries(CancellationToken cancellationToken = default);
@@ -177,6 +178,7 @@ public class UserRepository : IUserRepository
         new User { Id = 1, Username = "batman", Password = "batman", Role = "manager" },
         new User { Id = 2, Username = "robin", Password = "robin", Role = "employee" }
     };
+
     public async Task<User?> GetPerson(string login, string password, CancellationToken cancellationToken = default)
     {
         return await Task.FromResult(_users.FirstOrDefault(x => x.Username.Equals(login) && x.Password.Equals(password)));

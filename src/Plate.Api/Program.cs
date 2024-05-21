@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.ResponseCompression;
 using System.IO.Compression;
+using Microsoft.AspNetCore.ResponseCompression;
 using Plate.Api.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,4 +38,5 @@ app.MapControllers();
 app.UseRateLimiter();
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{ }
