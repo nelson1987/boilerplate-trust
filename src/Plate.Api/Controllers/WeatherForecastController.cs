@@ -10,11 +10,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
-using Serilog.Context;
 using Swashbuckle.AspNetCore.Filters;
 
 namespace Plate.Api.Controllers;
@@ -240,7 +238,6 @@ public static class Dependencies
 {
     public static IServiceCollection AddSummaries(this IServiceCollection services)
     {
-
         services.AddScoped<ISummary, Summary>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IValidator<CreateAccountCommand>, CreateAccountCommandValidator>();
@@ -352,6 +349,7 @@ public static class Dependencies
         services.AddFluentValidation(new[] { domainAssembly });
         return services;
     }
+
     public static ILoggingBuilder AddLogging(this ILoggingBuilder logging, IConfiguration configuration)
     {
         var logger = new LoggerConfiguration()
@@ -404,12 +402,12 @@ public interface IAccountRepository
 public class Transferencia
 {
     public readonly IAccountRepository _userRepository;
+
     public void Init(string userName, decimal valor, string contaEmissora, string numeroCheque)
     {
         var contaCliente = _userRepository.GetContaByUser(userName);
         var transacao = TransacaoFactory.Create(contaCliente, numeroCheque);
         var notificarCliente = "Depósito realizado com sucesso.";
-
     }
 }
 
@@ -447,8 +445,8 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         TResponse result = await next();
         //if (result.IsSuccess)
         //{
-            _logger.LogInformation(
-                "Completed handling {RequestName}", requestName);
+        _logger.LogInformation(
+            "Completed handling {RequestName}", requestName);
         //}
         //else
         //{
