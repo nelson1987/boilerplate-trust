@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using Serilog.Context;
 using Swashbuckle.AspNetCore.Filters;
 
 namespace Plate.Api.Controllers;
@@ -431,11 +432,31 @@ public class CreateAccountCommandHandler : IRequestHandler<CreateAccountCommand>
 }
 public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
 {
+    private readonly ILogger<LoggingBehavior<TRequest, TResponse>> _logger;
+
+    public LoggingBehavior(ILogger<LoggingBehavior<TRequest, TResponse>> logger)
+    {
+        _logger = logger;
+    }
+
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
-        //await Logger.InfoAsync($"Started Handling {typeof(TRequest)}");
-        var response = await next();
-        //await Logger.InfoAsync($"Ended Handling {typeof(TRequest)}");
-        return response;
+        string requestName = typeof(TRequest).Name;
+        _logger.LogInformation("Started handling {RequestName}", requestName);
+        TResponse result = await next();
+        //if (result.IsSuccess)
+        //{
+            _logger.LogInformation(
+                "Completed handling {RequestName}", requestName);
+        //}
+        //else
+        //{
+        //    using (LogContext.PushProperty("Error", result.Error, true))
+        //    {
+        //        _logger.LogError(
+        //            "Completed request {RequestName} with error", requestName);
+        //    }
+        //}
+        return result;
     }
 }
