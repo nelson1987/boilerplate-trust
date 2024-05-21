@@ -326,13 +326,6 @@ public static class Dependencies
 
     public static IServiceCollection AddAutoMapping(this IServiceCollection services)
     {
-        var mapper = InitializeStaticMapping();
-        services.AddSingleton(mapper);
-        return services;
-    }
-
-    private static IMapper InitializeStaticMapping()
-    {
         var configuration = new MapperConfiguration(cfg =>
         {
             cfg.AddProfile<AccountMapper>();
@@ -340,9 +333,9 @@ public static class Dependencies
 
         var mapper = new Mapper(configuration);
         AutoMapperExtension.Initialize(mapper);
-        return mapper;
+        services.AddSingleton(mapper);
+        return services;
     }
-
 }
 
 public class LoginAccountCommandExample : IMultipleExamplesProvider<LoginAccountCommand>
