@@ -181,7 +181,9 @@ public class UserRepository : IUserRepository
 
     public async Task<User?> GetPerson(string login, string password, CancellationToken cancellationToken = default)
     {
-        return await Task.FromResult(_users.FirstOrDefault(x => x.Username.Equals(login) && x.Password.Equals(password)));
+        return await Task.FromResult(_users.FirstOrDefault(x =>
+                                                string.Equals(x.Username, login, StringComparison.OrdinalIgnoreCase) &&
+                                                string.Equals(x.Password, password, StringComparison.OrdinalIgnoreCase)));
     }
 }
 
