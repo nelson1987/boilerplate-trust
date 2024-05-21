@@ -4,10 +4,13 @@ using System.Text;
 using System.Threading.RateLimiting;
 using AutoMapper;
 using FluentValidation;
+using MediatR;
+using MediatR.Extensions.FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Filters;
@@ -25,13 +28,13 @@ public class WeatherForecastController : ControllerBase
     private readonly ISummary _summaries;
     private readonly IUserRepository _userRepository;
     private readonly IValidator<CreateAccountCommand> _validator;
-    private readonly ICreateAccountHandler _handler;
+    private readonly IMediator _handler;
 
     public WeatherForecastController(ILogger<WeatherForecastController> logger,
         ISummary summaries,
         IUserRepository userRepository,
         IValidator<CreateAccountCommand> validator,
-        ICreateAccountHandler handler)
+        IMediator handler)
     {
         _logger = logger;
         _summaries = summaries;
@@ -85,7 +88,7 @@ public class WeatherForecastController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        await _handler.Handle(command, cancellationToken);
+        await _handler.Send(command, cancellationToken);
 
         return Created();
     }
@@ -143,7 +146,7 @@ public record User
 
 public record LoginAccountCommand(string Username, string Password);
 
-public record CreateAccountCommand(string Username, string Password);
+public record CreateAccountCommand(string Username, string Password) : IRequest;
 
 public record CreateAccountRequest(string Username, string Password);
 
@@ -235,6 +238,7 @@ public static class Dependencies
 {
     public static IServiceCollection AddSummaries(this IServiceCollection services)
     {
+
         services.AddScoped<ISummary, Summary>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IValidator<CreateAccountCommand>, CreateAccountCommandValidator>();
@@ -336,6 +340,18 @@ public static class Dependencies
         services.AddSingleton(mapper);
         return services;
     }
+    public static IServiceCollection AddMediator(this IServiceCollection services)
+    {
+
+        var domainAssembly = typeof(CreateAccountCommandHandler).Assembly;
+        // Add MediatR
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(domainAssembly));
+
+        //Add FluentValidation
+        services.AddFluentValidation(new[] { domainAssembly });
+        return services;
+    }
+
 }
 
 public class LoginAccountCommandExample : IMultipleExamplesProvider<LoginAccountCommand>
@@ -394,5 +410,23 @@ public static class TransacaoFactory
     public static Transacao Create(string contaCliente, string numeroCheque)
     {
         return new Transacao(contaCliente, numeroCheque, DateTime.Now);
+    }
+}
+
+public class CreateAccountCommandHandler : IRequestHandler<CreateAccountCommand>
+{
+    public async Task Handle(CreateAccountCommand request, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+}
+public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+{
+    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
+    {
+        //await Logger.InfoAsync($"Started Handling {typeof(TRequest)}");
+        var response = await next();
+        //await Logger.InfoAsync($"Ended Handling {typeof(TRequest)}");
+        return response;
     }
 }

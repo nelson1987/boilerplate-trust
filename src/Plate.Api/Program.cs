@@ -16,7 +16,8 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
                 .AddUserAuthentication()
                 .AddSwaggerGeneration()
                 .AddRouting(options => options.LowercaseUrls = true)
-                .AddAutoMapping();
+                .AddAutoMapping()
+                .AddMediator();
 // Add services to the container.
 
 builder.Services.AddControllers()
