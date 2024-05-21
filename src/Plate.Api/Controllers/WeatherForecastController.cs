@@ -24,13 +24,13 @@ public class WeatherForecastController : ControllerBase
     private readonly ISummary _summaries;
     private readonly IUserRepository _userRepository;
     private readonly IValidator<CreateAccountCommand> _validator;
-    private readonly IEmpregadoCreateHandler _handler;
+    private readonly ICreateAccountHandler _handler;
 
     public WeatherForecastController(ILogger<WeatherForecastController> logger,
         ISummary summaries,
         IUserRepository userRepository,
         IValidator<CreateAccountCommand> validator,
-        IEmpregadoCreateHandler handler)
+        ICreateAccountHandler handler)
     {
         _logger = logger;
         _summaries = summaries;
@@ -183,18 +183,19 @@ public class UserRepository : IUserRepository
     }
 }
 
-public interface IEmpregadoCreateHandler
+public interface ICreateAccountHandler
 {
     Task Handle(CreateAccountCommand request, CancellationToken cancellationToken = default);
 }
 
-public class EmpregadoCreateHandler : IEmpregadoCreateHandler
+public class CreateAccountHandler : ICreateAccountHandler
 {
     public Task Handle(CreateAccountCommand request, CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }
 }
+
 public static class Settings
 {
     public static readonly string Secret = "fedaf7d8863b48e197b9287d492b708e";
@@ -229,7 +230,7 @@ public static class Dependencies
         services.AddScoped<ISummary, Summary>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IValidator<CreateAccountCommand>, CreateAccountCommandValidator>();
-        services.AddScoped<IEmpregadoCreateHandler, EmpregadoCreateHandler>();
+        services.AddScoped<ICreateAccountHandler, CreateAccountHandler>();
         return services;
     }
 
