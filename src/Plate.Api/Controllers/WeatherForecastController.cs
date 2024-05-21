@@ -366,6 +366,6 @@ public class AccountMapper : Profile
 {
     public AccountMapper()
     {
-        CreateMap<CreateAccountCommand, CreateAccountRequest>();
+        CreateMap<CreateAccountRequest, CreateAccountCommand>();
     }
 }
