@@ -15,6 +15,6 @@ Content-Type: application/json
 
 # @name getAuthenticated
 GET {{Plate.Api_HostAddress}}/api/weatherforecast/authenticated 
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImJhdG1hbiIsInJvbGUiOiJtYW5hZ2VyIiwibmJmIjoxNzE2MjQ5NTU1LCJleHAiOjE3MTYyNTY3NTUsImlhdCI6MTcxNjI0OTU1NX0.Y56lTYsOLBvsTWvJKgr38fYrSwSqwxoIzGjAKMQWPZw
+Authorization: Bearer
 accept: */*
 ###
