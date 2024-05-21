@@ -369,3 +369,30 @@ public class AccountMapper : Profile
         CreateMap<CreateAccountRequest, CreateAccountCommand>();
     }
 }
+
+public interface IAccountRepository
+{
+    string GetContaByUser(string userName);
+}
+
+public class Transferencia
+{
+    public readonly IAccountRepository _userRepository;
+    public void Init(string userName, decimal valor, string contaEmissora, string numeroCheque)
+    {
+        var contaCliente = _userRepository.GetContaByUser(userName);
+        var transacao = TransacaoFactory.Create(contaCliente, numeroCheque);
+        var notificarCliente = "Depósito realizado com sucesso.";
+
+    }
+}
+
+public record Transacao(string ContaCliente, string NumeroCheque, DateTime DataTransacao);
+
+public static class TransacaoFactory
+{
+    public static Transacao Create(string contaCliente, string numeroCheque)
+    {
+        return new Transacao(contaCliente, numeroCheque, DateTime.Now);
+    }
+}
