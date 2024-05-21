@@ -1,7 +1,9 @@
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,19 +23,26 @@ public class WeatherForecastController : ControllerBase
     private readonly ILogger<WeatherForecastController> _logger;
     private readonly ISummary _summaries;
     private readonly IUserRepository _userRepository;
+    private readonly IValidator<CreateAccountCommand> _validator;
+    private readonly IEmpregadoCreateHandler _handler;
 
     public WeatherForecastController(ILogger<WeatherForecastController> logger,
         ISummary summaries,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IValidator<CreateAccountCommand> validator,
+        IEmpregadoCreateHandler handler)
     {
         _logger = logger;
         _summaries = summaries;
         _userRepository = userRepository;
+        _validator = validator;
+        _handler = handler;
     }
 
     [HttpPost]
     [Route("/login")]
     [AllowAnonymous]
+    [SwaggerRequestExample(typeof(LoginAccountCommand), typeof(LoginAccountCommandExample))]
     public async Task<ActionResult<dynamic>> Authenticate([FromBody] LoginAccountCommand model)
     {
         var user = await _userRepository.GetPerson(model.Username, model.Password);
@@ -61,6 +70,22 @@ public class WeatherForecastController : ControllerBase
             TemperatureC = Random.Shared.Next(-20, 55),
             Summary = sumaries[Random.Shared.Next(sumaries.Length)]
         }));
+    }
+
+    [HttpPost]
+    public async Task<ActionResult> Post([FromBody] CreateAccountCommand request, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Started {0}", nameof(Post));
+        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+            return UnprocessableEntity(validationResult.Errors);
+
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        await _handler.Handle(request, cancellationToken);
+
+        return Created();
     }
 
     [HttpGet]
@@ -116,6 +141,15 @@ public record User
 
 public record LoginAccountCommand(string Username, string Password);
 
+public record CreateAccountCommand(string Username, string Password);
+
+public class CreateAccountCommandValidator : AbstractValidator<CreateAccountCommand>
+{
+    public CreateAccountCommandValidator()
+    {
+        RuleFor(x => x.Username).NotEmpty();
+    }
+}
 public interface ISummary
 {
     Task<string[]> GetSummaries(CancellationToken cancellationToken = default);
@@ -149,6 +183,18 @@ public class UserRepository : IUserRepository
     }
 }
 
+public interface IEmpregadoCreateHandler
+{
+    Task Handle(CreateAccountCommand request, CancellationToken cancellationToken = default);
+}
+
+public class EmpregadoCreateHandler : IEmpregadoCreateHandler
+{
+    public Task Handle(CreateAccountCommand request, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+}
 public static class Settings
 {
     public static readonly string Secret = "fedaf7d8863b48e197b9287d492b708e";
@@ -182,6 +228,8 @@ public static class Dependencies
     {
         services.AddScoped<ISummary, Summary>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IValidator<CreateAccountCommand>, CreateAccountCommandValidator>();
+        services.AddScoped<IEmpregadoCreateHandler, EmpregadoCreateHandler>();
         return services;
     }
 
