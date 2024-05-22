@@ -25,15 +25,15 @@ namespace Plate.Api.Controllers;
 public class WeatherForecastController : ControllerBase
 {
     private readonly ILogger<WeatherForecastController> _logger;
-    private readonly ISummary _summaries;
+    private readonly ISummaryRepository _summaries;
     private readonly IUserRepository _userRepository;
-    private readonly IValidator<CreateAccountCommand> _validator;
+    private readonly IValidator<CreateTransferCommand> _validator;
     private readonly IMediator _handler;
 
     public WeatherForecastController(ILogger<WeatherForecastController> logger,
-        ISummary summaries,
+        ISummaryRepository summaries,
         IUserRepository userRepository,
-        IValidator<CreateAccountCommand> validator,
+        IValidator<CreateTransferCommand> validator,
         IMediator handler)
     {
         _logger = logger;
@@ -77,13 +77,15 @@ public class WeatherForecastController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> Post([FromBody] CreateAccountRequest request, CancellationToken cancellationToken = default)
+    public async Task<ActionResult> Post([FromBody] CreateTransferRequest request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Started {0}", nameof(Post));
-        var command = request.MapTo<CreateAccountCommand>();
-        var validationResult = await _validator.ValidateAsync(command, cancellationToken);
-        if (!validationResult.IsValid)
-            return UnprocessableEntity(validationResult.Errors);
+        var command = request.MapTo<CreateTransferCommand>();
+        command.Username = User.GetUserName();
+
+        //var validationResult = await _validator.ValidateAsync(command, cancellationToken);
+        //if (!validationResult.IsValid)
+        //    return UnprocessableEntity(validationResult.Errors);
 
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
@@ -96,32 +98,43 @@ public class WeatherForecastController : ControllerBase
     [HttpGet]
     [Route("authenticated")]
     [Authorize]
-    public string Authenticated()
+    public async Task<ActionResult> Authenticated(CancellationToken cancellationToken = default)
     {
-        var identity = (ClaimsIdentity?)User.Identity!;
-        var roles = identity.Claims
-            .Where(c => c.Type == ClaimTypes.Role)
-            .Select(c => c.Value);
-
-        return $"Autenticado: {identity.Name}\nRole: {string.Join(",", roles.ToList())}";
+        return Ok($"Autenticado: {User.GetUserName()}\nRole: {string.Join(",", User.GetRoles())}");
     }
 
     [HttpGet]
     [Route("/employee")]
     [Authorize(Roles = "employee,manager")]
-    public string Employee()
+    public async Task<ActionResult> Employee(CancellationToken cancellationToken = default)
     {
-        var identity = (ClaimsIdentity?)User.Identity!;
-        return $"Funcionário: {identity.Name}";
+        return Ok($"Funcionário: {User.GetUserName()}");
     }
 
     [HttpGet]
     [Route("/manager")]
     [Authorize(Roles = "manager")]
-    public string Manager()
+    public async Task<ActionResult> Manager(CancellationToken cancellationToken = default)
+    {
+        return Ok($"Gerente: {User.GetUserName()}");
+    }
+}
+
+public static class IdentityExtensions
+{
+    public static string GetUserName(this ClaimsPrincipal User)
     {
         var identity = (ClaimsIdentity?)User.Identity!;
-        return $"Gerente: {identity.Name}";
+        return identity.Name!;
+    }
+
+    public static string[] GetRoles(this ClaimsPrincipal User)
+    {
+        var identity = (ClaimsIdentity?)User.Identity!;
+        return identity.Claims
+            .Where(c => c.Type == ClaimTypes.Role)
+            .Select(c => c.Value)
+            .ToArray();
     }
 }
 
@@ -146,11 +159,15 @@ public record User
 
 public record LoginAccountCommand(string Username, string Password);
 
-public record CreateAccountCommand(string Username, string Password) : IRequest;
+public record CreateTransferCommand : IRequest
+{
+    public string Username { get; set; }
+    public decimal Amount { get; set; }
+}
 
-public record CreateAccountRequest(string Username, string Password);
+public record CreateTransferRequest(decimal Amount);
 
-public class CreateAccountCommandValidator : AbstractValidator<CreateAccountCommand>
+public class CreateAccountCommandValidator : AbstractValidator<CreateTransferCommand>
 {
     public CreateAccountCommandValidator()
     {
@@ -158,12 +175,12 @@ public class CreateAccountCommandValidator : AbstractValidator<CreateAccountComm
     }
 }
 
-public interface ISummary
+public interface ISummaryRepository
 {
     Task<string[]> GetSummaries(CancellationToken cancellationToken = default);
 }
 
-public class Summary : ISummary
+public class Summary : ISummaryRepository
 {
     public async Task<string[]> GetSummaries(CancellationToken cancellationToken = default)
     {
@@ -196,12 +213,12 @@ public class UserRepository : IUserRepository
 
 public interface ICreateAccountHandler
 {
-    Task Handle(CreateAccountCommand request, CancellationToken cancellationToken = default);
+    Task Handle(CreateTransferCommand request, CancellationToken cancellationToken = default);
 }
 
 public class CreateAccountHandler : ICreateAccountHandler
 {
-    public Task Handle(CreateAccountCommand request, CancellationToken cancellationToken = default)
+    public Task Handle(CreateTransferCommand request, CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }
@@ -238,9 +255,9 @@ public static class Dependencies
 {
     public static IServiceCollection AddSummaries(this IServiceCollection services)
     {
-        services.AddScoped<ISummary, Summary>();
+        services.AddScoped<ISummaryRepository, Summary>();
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IValidator<CreateAccountCommand>, CreateAccountCommandValidator>();
+        services.AddScoped<IValidator<CreateTransferCommand>, CreateAccountCommandValidator>();
         services.AddScoped<ICreateAccountHandler, CreateAccountHandler>();
         return services;
     }
@@ -390,7 +407,7 @@ public class AccountMapper : Profile
 {
     public AccountMapper()
     {
-        CreateMap<CreateAccountRequest, CreateAccountCommand>();
+        CreateMap<CreateTransferRequest, CreateTransferCommand>();
     }
 }
 
@@ -421,9 +438,9 @@ public static class TransacaoFactory
     }
 }
 
-public class CreateAccountCommandHandler : IRequestHandler<CreateAccountCommand>
+public class CreateAccountCommandHandler : IRequestHandler<CreateTransferCommand>
 {
-    public async Task Handle(CreateAccountCommand request, CancellationToken cancellationToken)
+    public async Task Handle(CreateTransferCommand request, CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
     }
