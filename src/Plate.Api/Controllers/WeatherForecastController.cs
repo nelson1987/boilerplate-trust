@@ -1,13 +1,16 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Threading.RateLimiting;
 using AutoMapper;
+using FluentResults;
 using FluentValidation;
 using MediatR;
 using MediatR.Extensions.FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
@@ -77,15 +80,15 @@ public class WeatherForecastController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> Post([FromBody] CreateTransferRequest request, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<Result>> Post([FromBody] CreateTransferRequest request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Started {0}", nameof(Post));
         var command = request.MapTo<CreateTransferCommand>();
         command.Username = User.GetUserName();
 
-        //var validationResult = await _validator.ValidateAsync(command, cancellationToken);
-        //if (!validationResult.IsValid)
-        //    return UnprocessableEntity(validationResult.Errors);
+        var validationResult = await _validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+            return UnprocessableEntity(validationResult.Errors);
 
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
@@ -175,6 +178,14 @@ public class CreateAccountCommandValidator : AbstractValidator<CreateTransferCom
     }
 }
 
+public class CreateTransferRequestValidator : AbstractValidator<CreateTransferRequest>
+{
+    public CreateTransferRequestValidator()
+    {
+        RuleFor(x => x.Amount).NotEmpty();
+    }
+}
+
 public interface ISummaryRepository
 {
     Task<string[]> GetSummaries(CancellationToken cancellationToken = default);
@@ -257,7 +268,7 @@ public static class Dependencies
     {
         services.AddScoped<ISummaryRepository, Summary>();
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IValidator<CreateTransferCommand>, CreateAccountCommandValidator>();
+        services.AddScoped<IValidator<CreateTransferRequest>, CreateTransferRequestValidator>();
         services.AddScoped<ICreateAccountHandler, CreateAccountHandler>();
         return services;
     }
@@ -361,7 +372,12 @@ public static class Dependencies
     {
         var domainAssembly = typeof(CreateAccountCommandHandler).Assembly;
         // Add MediatR
-        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(domainAssembly));
+        services.AddMediatR(cfg =>
+        {
+            cfg.RegisterServicesFromAssembly(domainAssembly);
+            cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+            cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+        });
         //Add FluentValidation
         services.AddFluentValidation(new[] { domainAssembly });
         return services;
@@ -447,6 +463,8 @@ public class CreateAccountCommandHandler : IRequestHandler<CreateTransferCommand
 }
 
 public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : class
+    where TResponse : Result
 {
     private readonly ILogger<LoggingBehavior<TRequest, TResponse>> _logger;
 
@@ -457,22 +475,85 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
 
     public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
     {
+        var correlationId = Guid.NewGuid();
         string requestName = typeof(TRequest).Name;
-        _logger.LogInformation("Started handling {RequestName}", requestName);
+        var requestJson = JsonSerializer.Serialize(request);
+        _logger.LogInformation("Started handling {RequestName} - {CorrelationID} : {Request}", requestName, correlationId, requestJson);
         TResponse result = await next();
-        //if (result.IsSuccess)
-        //{
-        _logger.LogInformation(
-            "Completed handling {RequestName}", requestName);
-        //}
-        //else
-        //{
-        //    using (LogContext.PushProperty("Error", result.Error, true))
-        //    {
-        //        _logger.LogError(
-        //            "Completed request {RequestName} with error", requestName);
-        //    }
-        //}
+        var resultJson = JsonSerializer.Serialize(request);
+        if (result.IsSuccess)
+        {
+            _logger.LogInformation(
+                "Ended handling {RequestName} - {CorrelationID} : {Request}", requestName, correlationId, resultJson);
+        }
+        else
+        {
+            //using (LogContext.PushProperty("Error", result.Error, true))
+            //{
+            _logger.LogError(
+                "Ended handling {RequestName} with error - {CorrelationID} : {Request}", requestName, correlationId, resultJson);
+            //}
+        }
         return result;
+    }
+}
+public class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
+    : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : class
+{
+    public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(next);
+
+        if (validators.Any())
+        {
+            var context = new ValidationContext<TRequest>(request);
+
+            var validationResults = await Task.WhenAll(
+                validators.Select(v =>
+                    v.ValidateAsync(context, cancellationToken))).ConfigureAwait(false);
+
+            var failures = validationResults
+                .Where(r => r.Errors.Count > 0)
+                .SelectMany(r => r.Errors)
+                .ToList();
+
+            if (failures.Count > 0)
+                throw new FluentValidation.ValidationException(failures);
+        }
+        return await next().ConfigureAwait(false);
+    }
+}
+
+public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    {
+        var problemDetails = new ProblemDetails();
+        problemDetails.Instance = httpContext.Request.Path;
+
+        if (exception is FluentValidation.ValidationException fluentException)
+        {
+            problemDetails.Title = "one or more validation errors occurred.";
+            problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1";
+            httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            List<string> validationErrors = new List<string>();
+            foreach (var error in fluentException.Errors)
+            {
+                validationErrors.Add(error.ErrorMessage);
+            }
+            problemDetails.Extensions.Add("errors", validationErrors);
+        }
+
+        else
+        {
+            problemDetails.Title = exception.Message;
+        }
+
+        logger.LogError("{ProblemDetailsTitle}", problemDetails.Title);
+
+        problemDetails.Status = httpContext.Response.StatusCode;
+        await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken).ConfigureAwait(false);
+        return true;
     }
 }
