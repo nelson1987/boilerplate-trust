@@ -441,6 +441,10 @@ public static class Dependencies
             //    cfg.ConfigureEndpoints(ctx);
             //    cfg.UseRawJsonSerializer();
             //});
+            //cfg.ReceiveEndpoint("transfer-created-queue", e =>
+            //{
+            //    e.ConfigureConsumer<CreateTransferEventConsumer>(context);
+            //});
         });
         return services;
     }
@@ -531,10 +535,10 @@ public class CreateTransferEventConsumer : IConsumer<CreateTransferEvent>
         _publish = publish;
     }
 
-    public Task Consume(ConsumeContext<CreateTransferEvent> context)
+    public async Task Consume(ConsumeContext<CreateTransferEvent> context)
     {
         var @event = new CreateTransferEvent(context.Message!.Amount, CreateTransferStatus.Executed);
-        return Task.FromResult(_publish.Publish(@event));
+        await _publish.Publish(@event);
     }
 }
 
