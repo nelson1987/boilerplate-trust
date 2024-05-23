@@ -11,10 +11,15 @@ Content-Type: application/json
 }
 ###
 
-@authToken = {{login.response.body.$.token}}
+@tokenNovo = {{login.response.body.$.token}}
 
-# @name getAuthenticated
-GET {{Plate.Api_HostAddress}}/api/weatherforecast/authenticated 
-Authorization: Bearer
+# @name autenticado
+GET {{Plate.Api_HostAddress}}/api/weatherforecast/authenticated
+accept: application/json
+Authorization: Bearer {{tokenNovo}}
+###
+
+# @name NaoAutenticado
+GET {{Plate.Api_HostAddress}}/api/weatherforecast
 accept: */*
 ###
