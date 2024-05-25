@@ -1,26 +1,47 @@
 import { Component, OnInit } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
-import { MatDialog } from '@angular/material/dialog';
+import { FormBuilder } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   title = 'plateApp';
-  constructor(public dialog: MatDialog){
+  
+  formCadastro : any;
+  valoresForm : any;
+  mensagem: any;
+  setores : any;
+
+  constructor(private fb: FormBuilder, private http : HttpClient){
 
   }
-   openDialog(){
-    console.log(this);
-  // const dialogRef = this.dialog.(AppComponent,{innerHeight:'350px'
-
-  // });
-  // dialogRef.afterClosed().subscribe(result => {
-  //   console.log('Dialog result: ${result}');
-  // });
+  
+  ngOnInit(): void {
+   this.formCadastro = this.fb.group({
+    nome : ['']
+   });   
   }
+
+  cadastrar(){
+    this.http
+      .post('',{
+        'nome' : this.formCadastro.value.nome
+      })
+      .subscribe(res => this.mensagem = res);
+  }
+
+  consultar(): void{
+    this.http.get('https://jsonplaceholder.typicode.com/posts/1')
+    .subscribe(response => {
+      this.mensagem = response;
+    });
+    // this.http
+    //   .get('http://localhost:56925/api/Setor')
+    //   .subscribe(res => this.setores = res.json());
+    // }
+
 }
