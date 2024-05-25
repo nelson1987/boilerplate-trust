@@ -43,5 +43,6 @@ export class AppComponent implements OnInit {
     //   .get('http://localhost:56925/api/Setor')
     //   .subscribe(res => this.setores = res.json());
     // }
+  }
 
 }
