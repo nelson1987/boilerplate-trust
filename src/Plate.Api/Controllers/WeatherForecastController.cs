@@ -7,6 +7,7 @@ using System.Threading.RateLimiting;
 using AutoMapper;
 using FluentResults;
 using FluentValidation;
+using MassTransit;
 using MediatR;
 using MediatR.Extensions.FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -56,7 +57,7 @@ public class WeatherForecastController : ControllerBase
         var user = await _userRepository.GetPerson(model.Username, model.Password);
 
         if (user == null)
-            return NotFound(new { message = "Usuário ou senha inválidos" });
+            return NotFound(new { message = "Usuï¿½rio ou senha invï¿½lidos" });
 
         var token = TokenService.GenerateToken(user);
         user.Password = "";
@@ -112,7 +113,7 @@ public class WeatherForecastController : ControllerBase
     [Authorize(Roles = "employee,manager")]
     public async Task<ActionResult> Employee(CancellationToken cancellationToken = default)
     {
-        return Ok($"Funcionário: {User.GetUserName()}");
+        return Ok($"Funcionï¿½rio: {User.GetUserName()}");
     }
 
     [HttpGet]
@@ -170,6 +171,15 @@ public record CreateTransferCommand : IRequest
 }
 
 public record CreateTransferRequest(decimal Amount);
+
+public record CreateTransferEvent(decimal Amount, CreateTransferStatus Status);
+
+public enum CreateTransferStatus
+{
+    Open = 1,
+    Executed = 2,
+    Closed = 3
+}
 
 public class CreateAccountCommandValidator : AbstractValidator<CreateTransferCommand>
 {
@@ -417,6 +427,27 @@ public static class Dependencies
         services.AddDbContext<UserDbContext>(opt => opt.UseSqlServer(cs));
         return services;
     }
+
+
+    public static IServiceCollection AddMassTransit(this IServiceCollection services)
+    {
+        services.AddMassTransit(x =>
+        {
+            x.SetKebabCaseEndpointNameFormatter();
+            x.AddConsumer<CreateTransferEventConsumer>();
+            //x.UsingRabbitMq((ctx, cfg) =>
+            //{
+            //    cfg.Host("amqp://guest:guest@localhost:5672");
+            //    cfg.ConfigureEndpoints(ctx);
+            //    cfg.UseRawJsonSerializer();
+            //});
+            //cfg.ReceiveEndpoint("transfer-created-queue", e =>
+            //{
+            //    e.ConfigureConsumer<CreateTransferEventConsumer>(context);
+            //});
+        });
+        return services;
+    }
 }
 
 public class LoginAccountCommandExample : IMultipleExamplesProvider<LoginAccountCommand>
@@ -448,6 +479,7 @@ public class AccountMapper : Profile
     public AccountMapper()
     {
         CreateMap<CreateTransferRequest, CreateTransferCommand>();
+        //CreateMap<CreateTransferCommand, CreateTransferEvent>();
     }
 }
 
@@ -464,7 +496,7 @@ public class Transferencia
     {
         var contaCliente = _userRepository.GetContaByUser(userName);
         var transacao = TransacaoFactory.Create(contaCliente, numeroCheque);
-        var notificarCliente = "Depósito realizado com sucesso.";
+        var notificarCliente = "Depï¿½sito realizado com sucesso.";
     }
 }
 
@@ -480,9 +512,33 @@ public static class TransacaoFactory
 
 public class CreateAccountCommandHandler : IRequestHandler<CreateTransferCommand>
 {
+    private readonly IBus _bus;
+
+    public CreateAccountCommandHandler(IBus bus)
+    {
+        _bus = bus;
+    }
+
     public async Task Handle(CreateTransferCommand request, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var @event = new CreateTransferEvent(request.Amount, CreateTransferStatus.Open);
+        await _bus.Publish(@event, cancellationToken);
+        //await _bus.Publish(request.MapTo<CreateTransferEvent>(), cancellationToken);
+    }
+}
+public class CreateTransferEventConsumer : IConsumer<CreateTransferEvent>
+{
+    private readonly IPublishEndpoint _publish;
+
+    public CreateTransferEventConsumer(IPublishEndpoint publish)
+    {
+        _publish = publish;
+    }
+
+    public async Task Consume(ConsumeContext<CreateTransferEvent> context)
+    {
+        var @event = new CreateTransferEvent(context.Message!.Amount, CreateTransferStatus.Executed);
+        await _publish.Publish(@event);
     }
 }
 
