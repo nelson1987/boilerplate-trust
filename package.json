@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@ng-bootstrap/ng-bootstrap": "^16.0.0",
+    "ngx-toastr": "^18.0.0"
+  }
+}
