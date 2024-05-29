@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -209,6 +210,13 @@ public interface IUserRepository
 
 public class UserRepository : IUserRepository
 {
+    private readonly UserDbContext _context;
+
+    public UserRepository(UserDbContext context)
+    {
+        _context = context;
+    }
+
     private readonly User[] _users = new[] {
         new User { Id = 1, Username = "batman", Password = "batman", Role = "manager" },
         new User { Id = 2, Username = "robin", Password = "robin", Role = "employee" }
@@ -220,6 +228,15 @@ public class UserRepository : IUserRepository
                                                 string.Equals(x.Username, login, StringComparison.OrdinalIgnoreCase) &&
                                                 string.Equals(x.Password, password, StringComparison.OrdinalIgnoreCase)));
     }
+}
+
+public class UserDbContext : DbContext
+{
+    public UserDbContext(DbContextOptions options) : base(options)
+    {
+    }
+
+    public DbSet<User> User { get; set; }
 }
 
 public interface ICreateAccountHandler
@@ -393,6 +410,13 @@ public static class Dependencies
         logging.AddSerilog(logger);
         return logging;
     }
+
+    public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
+    {
+        var cs = configuration.GetConnectionString("Default");
+        services.AddDbContext<UserDbContext>(opt => opt.UseSqlServer(cs));
+        return services;
+    }
 }
 
 public class LoginAccountCommandExample : IMultipleExamplesProvider<LoginAccountCommand>
@@ -497,6 +521,7 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         return result;
     }
 }
+
 public class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidator<TRequest>> validators)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class
