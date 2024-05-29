@@ -1,0 +1,23 @@
+<p>cadastro-setor works!</p>
+<div class="container">
+    <h1>Sistema de Funcionários</h1>
+    <hr/>
+    <h4>Cadastro de Setor</h4>
+    <br/>
+    <div class="row">
+    <div class="col-md-4">
+    <form (ngSubmit)="cadastrar()" [formGroup]="formCadastro">
+    <label>Nome do Setor</label>
+    <input type="text" class="form-control"
+    formControlName="nome"/>
+ <br/>
+ <button type="submit" class="btn btn-success">
+ Cadastrar Setor
+ </button>
+ </form>
+ <hr/>
+ <button class="btn btn-primary" (click)="consultar()">
+ Obter Consulta de Setores
+ </button>
+</div>
+</div>
